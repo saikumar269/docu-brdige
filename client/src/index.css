@@ -1,0 +1,16 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+.btn-primary {
+  @apply bg-green-600 text-white px-6 py-2 rounded transition hover:bg-green-700;
+}
+.btn-secondary {
+  @apply bg-blue-600 text-white px-6 py-2 rounded transition hover:bg-blue-700;
+}
+.btn-tertiary {
+  @apply bg-gray-600 text-white px-6 py-2 rounded transition hover:bg-gray-700;
+}
+.btn-primary-lg {
+  @apply bg-green-700 text-white px-8 py-3 rounded-lg transition hover:bg-green-800 text-lg;
+}
