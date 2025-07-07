@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { useAuth } from "../Context/authContext";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
@@ -16,15 +16,21 @@ const EditProfile = () => {
     try {
       const token = localStorage.getItem("token");
       const { data } = await axios.patch(
-        "http://localhost:5000/api/user/profile",
+        "http://localhost:5000/api/auth/update-profile", // ✅ fixed endpoint
         { name, email },
         { headers: { Authorization: `Bearer ${token}` } }
       );
-      login(data.user, token);
-      setMessage("Profile updated!");
-      setTimeout(() => navigate("/profile"), 1500);
+
+      if (data?.success) {
+        login(data.user, token); // update context
+        setMessage("✅ Profile updated successfully!");
+        setTimeout(() => navigate("/profile"), 1500);
+      } else {
+        setMessage("❌ Update failed. Please try again.");
+      }
     } catch (err) {
-      setMessage("Update failed.");
+      console.error("Update Error:", err);
+      setMessage("❌ Update failed.");
     }
   };
 
@@ -33,13 +39,28 @@ const EditProfile = () => {
   return (
     <div className="pt-28 px-6 max-w-md mx-auto">
       <h1 className="text-2xl font-bold text-green-700 mb-4">Edit Profile</h1>
-      {message && <p className="text-center text-blue-600">{message}</p>}
+      {message && <p className="text-center text-blue-600 mb-4">{message}</p>}
       <form className="bg-white p-6 rounded shadow" onSubmit={handleSubmit}>
-        <label className="block mb-2">Name</label>
-        <input className="w-full border p-2 mb-4" value={name} onChange={e => setName(e.target.value)} />
-        <label className="block mb-2">Email</label>
-        <input className="w-full border p-2 mb-4" value={email} onChange={e => setEmail(e.target.value)} />
-        <button type="submit" className="btn-primary">Save Changes</button>
+        <label className="block mb-2 font-medium">Name</label>
+        <input
+          className="w-full border p-2 mb-4 rounded"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          required
+        />
+        <label className="block mb-2 font-medium">Email</label>
+        <input
+          className="w-full border p-2 mb-4 rounded"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          required
+        />
+        <button
+          type="submit"
+          className="w-full bg-green-600 text-white py-2 rounded hover:bg-green-700"
+        >
+          Save Changes
+        </button>
       </form>
     </div>
   );

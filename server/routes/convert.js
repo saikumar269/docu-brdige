@@ -5,6 +5,8 @@ const path = require("path");
 const { exec } = require("child_process");
 const htmlPdf = require("html-pdf");
 const pdfParse = require("pdf-parse");
+const libre = require("libreoffice-convert");
+const { PDFDocument } = require("pdf-lib");
 
 const router = express.Router();
 
@@ -85,6 +87,75 @@ router.post("/generate-edited-pdf", async (req, res) => {
     console.error("PDF creation failed:", err);
     res.status(500).send("PDF creation failed");
   }
+});
+
+router.post("/pdf-to-ppt", upload.single("file"), async (req, res) => {
+  const inPath = req.file.path;
+  const outName = `${Date.now()}_${req.file.originalname}.pptx`;
+  const outPath = path.join("converted", outName);
+
+  try {
+    const file = fs.readFileSync(inPath);
+    const ext = ".pptx";
+    const result = await libre.convert(file, ext, undefined);
+    fs.writeFileSync(outPath, result);
+    res.download(outPath, outName, err => {
+      fs.unlinkSync(inPath);
+      fs.unlinkSync(outPath);
+    });
+  } catch (e) {
+    console.error("PDF→PPT conversion error:", e);
+    res.status(500).json({ error: "PDF to PPT conversion failed" });
+  }
+});
+
+router.post("/remove-pages", upload.single("file"), async (req, res) => {
+  const { removePages } = req.body; // e.g. [1,3]
+  const inPath = req.file.path;
+  const outPath = path.join("converted", `cleaned_${Date.now()}.pdf`);
+
+  try {
+    const pdfBytes = fs.readFileSync(inPath);
+    const pdfDoc = await PDFDocument.load(pdfBytes);
+    const pages = pdfDoc.getPages();
+    removePages
+      .map(i => parseInt(i))
+      .sort((a,b)=>b-a)
+      .forEach(i => pages[i-1] && pdfDoc.removePage(i-1));
+    const outBytes = await pdfDoc.save();
+    fs.writeFileSync(outPath, outBytes);
+    res.download(outPath, err => {
+      fs.unlinkSync(inPath);
+      fs.unlinkSync(outPath);
+    });
+  } catch (e) {
+    console.error("Remove pages error:", e);
+    res.status(500).json({ error: "Failed to remove pages" });
+  }
+});
+
+router.post("/sign-pdf", upload.single("file"), async (req, res) => {
+  const { signatureImage, x, y, width, height } = req.body;
+  const inBytes = fs.readFileSync(req.file.path);
+  const pdfDoc = await PDFDocument.load(inBytes);
+  const imgBytes = Buffer.from(signatureImage, "base64");
+  const sigImg = await pdfDoc.embedPng(imgBytes);
+  const pages = pdfDoc.getPages();
+  const page = pages[0];
+
+  page.drawImage(sigImg, {
+    x: parseFloat(x), y: parseFloat(y),
+    width: parseFloat(width), height: parseFloat(height),
+  });
+
+  const outBytes = await pdfDoc.save();
+  const outPath = path.join("converted", `signed_${Date.now()}.pdf`);
+  fs.writeFileSync(outPath, outBytes);
+
+  res.download(outPath, err => {
+    fs.unlinkSync(req.file.path);
+    fs.unlinkSync(outPath);
+  });
 });
 
 module.exports = router;

@@ -1,133 +1,119 @@
 import React, { useState } from "react";
 import axios from "axios";
+import { useNavigate } from "react-router-dom";
+
 
 const DocToPdf = () => {
   const [file, setFile] = useState(null);
-  const [description, setDescription] = useState("");
-  const [error, setError] = useState("");
+  const [convertedFileUrl, setConvertedFileUrl] = useState(null);
+  const [convertedFilePath, setConvertedFilePath] = useState(""); // server-side path for extract
   const [editContent, setEditContent] = useState("");
-  const [showButtons, setShowButtons] = useState(false);
-  const [convertedBlob, setConvertedBlob] = useState(null);
-  const [editingMode, setEditingMode] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [showActions, setShowActions] = useState(false);
+
+  const handleFileChange = (e) => {
+    setFile(e.target.files[0]);
+    setShowActions(false);
+    setIsEditing(false);
+    setConvertedFileUrl(null);
+    setEditContent("");
+    setConvertedFilePath("");
+  };
 
   const handleConvert = async () => {
-    if (!file) {
-      setError("Please select a DOC or DOCX file.");
-      return;
-    }
+  if (!file) return alert("Please select a DOC file");
 
-    const allowedTypes = [
-      "application/msword", // .doc
-      "application/vnd.openxmlformats-officedocument.wordprocessingml.document", // .docx
-    ];
+  const formData = new FormData();
+  formData.append("file", file);
 
-    if (!allowedTypes.includes(file.type)) {
-      setError("Only DOC or DOCX files are allowed.");
-      return;
-    }
+  try {
+    const res = await axios.post("http://localhost:5000/api/convert", formData);
+    const { filePath, downloadUrl } = res.data;
 
-    setError("");
+    setConvertedFilePath(filePath);
+    setConvertedFileUrl(`http://localhost:5000${downloadUrl}`);
+    setShowActions(true);
+  } catch (err) {
+    console.error(err);
+    alert("Conversion failed.");
+  }
+};
 
-    const formData = new FormData();
-    formData.append("file", file);
-    formData.append("title", file.name);
-    formData.append("description", description);
+
+  const handleEdit = async () => {
+    if (!convertedFilePath) return alert("No converted file found");
 
     try {
+      const res = await axios.post("http://localhost:5000/api/extract", {
+        filePath: convertedFilePath,
+      });
+
+      setEditContent(res.data.text);
+      setIsEditing(true);
+    } catch (err) {
+      console.error("❌ Edit failed", err);
+      alert("Failed to extract content for editing");
+    }
+  };
+
+  const handleDownloadEdited = async () => {
+    try {
       const res = await axios.post(
-        "http://localhost:5000/api/convert/doc-to-pdf",
-        formData,
+        "http://localhost:5000/api/generate-pdf",
+        { content: editContent },
         { responseType: "blob" }
       );
 
-      setConvertedBlob(res.data);
-      setShowButtons(true);
-
-      // OPTIONAL: Simulate content for edit mode (since we cannot extract PDF content)
-      setEditContent("This is a simulated editable version of the document.\n\nYou can edit this text.");
-
+      const blob = new Blob([res.data], { type: "application/pdf" });
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = "edited.pdf";
+      link.click();
     } catch (err) {
       console.error(err);
-      setError("Conversion failed. Please try again.");
+      alert("Failed to generate edited PDF.");
     }
   };
-
-  const handleDirectDownload = () => {
-    if (!convertedBlob) return;
-    const url = window.URL.createObjectURL(new Blob([convertedBlob]));
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = "converted.pdf";
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-  };
-
-  const handleDownloadEdited = () => {
-    const newWindow = window.open("", "_blank");
-    newWindow.document.write(`
-      <html>
-        <head><title>Edited PDF</title></head>
-        <body>
-          <pre style="font-family: Arial; white-space: pre-wrap;">${editContent}</pre>
-          <script>
-            window.print();
-          </script>
-        </body>
-      </html>
-    `);
-    newWindow.document.close();
-  };
+  const navigate = useNavigate();
 
   return (
-    <div className="max-w-2xl mx-auto p-6 bg-white rounded shadow mt-8">
-      <h2 className="text-2xl font-semibold mb-4">DOC to PDF Converter</h2>
+    <>
+    <div className="p-6 max-w-xl mx-auto mt-[150px] shadow-lg rounded bg-white bg-gradient-to-br from-green-50 to-white">
+      <button className="mb-[50px]" onClick={() => navigate("/convert")}>← Back</button>
+      <h2 className="text-3xl font-bold mb-4 text-green-800">DOC to PDF Converter</h2>
 
-      <input
-        type="file"
-        accept=".doc,.docx"
-        onChange={(e) => setFile(e.target.files[0])}
-        className="mb-4"
-      />
+      <input type="file" accept=".doc,.docx" onChange={handleFileChange} className="mb-4 p-2 border rounded" />
 
-      <textarea
-        placeholder="Optional description"
-        value={description}
-        onChange={(e) => setDescription(e.target.value)}
-        className="w-full p-2 border rounded mb-4"
-      />
-
-      {error && <p className="text-red-600">{error}</p>}
-
-      {!showButtons && (
+      {!showActions && (
         <button
           onClick={handleConvert}
-          className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+          className="mt-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
         >
           Convert
         </button>
       )}
 
-      {showButtons && !editingMode && (
-        <div className="mt-4 flex gap-4">
+      {showActions && (
+        <div className="flex gap-4 mt-4">
           <button
-            onClick={() => setEditingMode(true)}
-            className="bg-yellow-500 text-white px-4 py-2 rounded hover:bg-yellow-600"
+            onClick={handleEdit}
+            className="px-4 py-2 bg-yellow-500 text-white rounded hover:bg-yellow-600"
           >
             Edit
           </button>
-          <button
-            onClick={handleDirectDownload}
-            className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700"
+          <a
+            href={convertedFileUrl}
+            download="converted.pdf"
+            className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
           >
             Download
-          </button>
+          </a>
+
         </div>
       )}
 
-      {editingMode && (
+      {isEditing && (
         <div className="mt-6">
-          <h3 className="text-lg font-semibold mb-2">Edit Document</h3>
           <textarea
             value={editContent}
             onChange={(e) => setEditContent(e.target.value)}
@@ -136,13 +122,14 @@ const DocToPdf = () => {
           />
           <button
             onClick={handleDownloadEdited}
-            className="mt-4 bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700"
+            className="mt-3 px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700"
           >
             Download Edited PDF
           </button>
         </div>
       )}
     </div>
+    </>
   );
 };
 

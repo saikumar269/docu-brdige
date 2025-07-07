@@ -1,9 +1,16 @@
 const express = require("express");
 const router = express.Router();
 const multer = require("multer");
+const libre = require('libreoffice-convert');
 const { exec } = require("child_process");
 const fs = require("fs");
 const path = require("path");
+const { promisify } = require('util');
+
+if (!fs.existsSync(path.join(__dirname, "outputs"))) {
+  fs.mkdirSync(path.join(__dirname, "outputs"));
+}
+
 
 const upload = multer({ dest: "uploads/" });
 const convert = (inputPath, format) =>
@@ -17,6 +24,20 @@ const routes = [
   { path: "pdf-to-doc", format: "doc", ext: "doc" },
   { path: "pdf-to-excel", format: "xlsx", ext: "xlsx" },
 ];
+
+
+const libreConvertAsync = promisify(libre.convert);
+
+const convertFile = async (inputPath) => {
+  const ext = ".pdf";
+  const outputPath = path.join(__dirname, "outputs", `${Date.now()}-converted.pdf`);
+
+  const docxBuf = fs.readFileSync(inputPath);
+  const pdfBuf = await libreConvertAsync(docxBuf, ext, undefined);
+
+  fs.writeFileSync(outputPath, pdfBuf);
+  return outputPath;
+};
 
 routes.forEach(({ path: p, format, ext }) => {
   router.post(`/${p}`, upload.single("file"), (req, res) => {
@@ -35,3 +56,4 @@ routes.forEach(({ path: p, format, ext }) => {
 });
 
 module.exports = router;
+module.exports = { convertFile, routes };

@@ -3,6 +3,8 @@ const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const crypto = require("crypto");
 const nodemailer = require("nodemailer");
+const authenticateUser = require("../middleware/authMiddleware"); // Middleware to get req.user from token
+
 
 const router = express.Router();
 const User = require("../models/User");
@@ -139,5 +141,25 @@ router.post("/verify-otp-reset", async (req, res) => {
     res.status(500).json({ error: "Failed to reset password" });
   }
 });
+
+// PATCH /api/auth/update-profile
+router.patch("/update-profile", authenticateUser, async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const { name, email } = req.body;
+
+    const updatedUser = await User.findByIdAndUpdate(
+      userId,
+      { name, email },
+      { new: true }
+    );
+
+    res.json({ success: true, user: updatedUser });
+  } catch (err) {
+    console.error("Update failed:", err);
+    res.status(500).json({ success: false, message: "Update failed" });
+  }
+});
+
 
 module.exports = router;

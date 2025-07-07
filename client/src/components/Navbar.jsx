@@ -26,7 +26,7 @@ const Navbar = () => {
     <nav className="fixed top-0 left-0 w-full bg-white shadow-md z-50">
       <div className="max-w-6xl mx-auto px-2 sm:px-4 py-3 flex justify-between items-center">
 
-        <Link to="/" className="text-4xl font-bold text-green-700 p-0">
+        <Link to="/" className="text-4xl font-bold text-green-700 hover:text-green-800 transition">
           DocuBridge
         </Link>
 
@@ -65,13 +65,7 @@ const Navbar = () => {
                   >
                     Edit Profile
                   </Link>
-                  <Link
-                    to="/downloads"
-                    className="block px-4 py-2 hover:bg-gray-100"
-                    onClick={() => setIsDropdownOpen(false)}
-                  >
-                    Downloads
-                  </Link>
+                  
                   <button
                     onClick={() => {
                       logout();
